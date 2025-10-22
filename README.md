@@ -18,3 +18,5 @@ How to use:
    - If below threshold bot will attempt to purchase the item
    - If above bot will do nothing and you click back out
 3. Repeat until you hit
+
+v2 comes with configuration for coordinates instead of manually setting them yourself
