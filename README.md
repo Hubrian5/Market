@@ -19,4 +19,5 @@ How to use:
    - If above bot will do nothing and you click back out
 3. Repeat until you hit
 
-v2 comes with configuration for coordinates instead of manually setting them yourself
+v2 comes with configuration for coordinates instead of manually setting them yourself. Delete the config file if u want to set it up again.
+
