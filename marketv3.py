@@ -13,39 +13,54 @@ CONFIG_FILE = "config.json"
 
 # ------------------- HELPER FUNCTIONS -------------------
 def get_mouse_position(prompt):
+    """Prompt user to capture mouse position."""
     print(prompt)
     input("Press Enter when ready...")
     pos = pyautogui.position()
     print(f"Captured: ({pos.x}, {pos.y})\n")
     return pos
 
-def save_config(region, click_coords):
+def save_config(region, click_coords, item_coords, return_coords):
+    """Save configuration data to JSON."""
     with open(CONFIG_FILE, "w") as f:
-        json.dump({"REGION": region, "CLICK_X": click_coords[0], "CLICK_Y": click_coords[1]}, f)
+        json.dump({
+            "REGION": region,
+            "CLICK_X": click_coords[0],
+            "CLICK_Y": click_coords[1],
+            "ITEM_X": item_coords[0],
+            "ITEM_Y": item_coords[1],
+            "RETURN_X": return_coords[0],
+            "RETURN_Y": return_coords[1]
+        }, f, indent=4)
     print(f"✅ Configuration saved to {CONFIG_FILE}\n")
 
 def load_config():
+    """Load configuration data from JSON if available."""
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "r") as f:
             data = json.load(f)
         print(f"✅ Loaded configuration from {CONFIG_FILE}\n")
-        return data["REGION"], (data["CLICK_X"], data["CLICK_Y"])
-    return None, None
+        region = data.get("REGION")
+        click_coords = (data.get("CLICK_X"), data.get("CLICK_Y"))
+        item_coords = (data.get("ITEM_X"), data.get("ITEM_Y"))
+        return_coords = (data.get("RETURN_X"), data.get("RETURN_Y"))
+        return region, click_coords, item_coords, return_coords
+    return None, None, None, None
 
 # ------------------- CONFIGURATION -------------------
 print("=== Price Watcher Bot ===")
 
-REGION, click_coords = load_config()
+REGION, click_coords, item_coords, return_coords = load_config()
 
-if REGION and click_coords:
+if REGION and click_coords and item_coords and return_coords:
     use_existing = input("Use saved configuration? (y/n): ").strip().lower()
     if use_existing != 'y':
-        REGION = None
+        REGION = click_coords = item_coords = return_coords = None
 
-if not REGION or not click_coords:
+if not REGION or not click_coords or not item_coords or not return_coords:
     print("\n--- Configure Region ---")
-    top_left = get_mouse_position("Move your mouse to the TOP-LEFT corner of the region.")
-    bottom_right = get_mouse_position("Move your mouse to the BOTTOM-RIGHT corner of the region.")
+    top_left = get_mouse_position("Move your mouse to the TOP-LEFT corner of the price region.")
+    bottom_right = get_mouse_position("Move your mouse to the BOTTOM-RIGHT corner of the price region.")
 
     REGION = {
         "top": top_left.y,
@@ -54,22 +69,32 @@ if not REGION or not click_coords:
         "height": bottom_right.y - top_left.y
     }
 
+    print("--- Configure Item Coordinates ---")
+    item_pos = get_mouse_position("Move your mouse to the ITEM you want to check (e.g., item slot).")
+    item_coords = (item_pos.x, item_pos.y)
+
+    print("--- Configure Return Coordinates ---")
+    return_pos = get_mouse_position("Move your mouse to the RETURN button or area.")
+    return_coords = (return_pos.x, return_pos.y)
+
     print("--- Configure Purchase Button ---")
-    click_pos = get_mouse_position("Move your mouse to the position you want to click to purchase (e.g., Buy button).")
+    click_pos = get_mouse_position("Move your mouse to the PURCHASE button (e.g., Buy button).")
     click_coords = (click_pos.x, click_pos.y)
 
-    save_config(REGION, click_coords)
+    save_config(REGION, click_coords, item_coords, return_coords)
 
 CLICK_X, CLICK_Y = click_coords
+ITEM_X, ITEM_Y = item_coords
+RETURN_X, RETURN_Y = return_coords
+
 print(f"Using region: {REGION}")
-print(f"Using purchase click coordinates: ({CLICK_X}, {CLICK_Y})\n")
+print(f"Using purchase click coordinates: ({CLICK_X}, {CLICK_Y})")
+print(f"Using item coordinates: ({ITEM_X}, {ITEM_Y})")
+print(f"Using return coordinates: ({RETURN_X}, {RETURN_Y})\n")
 
 # ------------------- CONSTANTS -------------------
 THRESHOLD_VALUE = 19000
 SCAN_INTERVAL = 0.75
-
-ITEM_X, ITEM_Y = 640, 285
-RETURN_X, RETURN_Y = 660, 200
 
 reader = easyocr.Reader(['en'], gpu=False)
 sct = mss()
@@ -81,17 +106,16 @@ running = True
 print("Bot started. Press Ctrl+C OR F8 to stop (works globally).\n")
 
 # ------------------- GLOBAL HOTKEY HANDLER -------------------
-def monitor_hotkey():
-    global running
-    keyboard.add_hotkey('ctrl+c', lambda: stop_bot())
-    keyboard.add_hotkey('f8', lambda: stop_bot())
-    while running:
-        time.sleep(0.1)
-
 def stop_bot():
     global running
     running = False
     print("\n🛑 Stop signal received. Stopping bot safely...")
+
+def monitor_hotkey():
+    keyboard.add_hotkey('ctrl+c', stop_bot)
+    keyboard.add_hotkey('f8', stop_bot)
+    while running:
+        time.sleep(0.1)
 
 # Run hotkey listener in background thread
 threading.Thread(target=monitor_hotkey, daemon=True).start()
